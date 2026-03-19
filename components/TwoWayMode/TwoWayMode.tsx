@@ -5,6 +5,7 @@ import {
   Camera,
   Send,
   Mic,
+  MicOff,
   MessageSquareMore,
   Pause,
   Trash2,
@@ -12,20 +13,16 @@ import {
   Ear,
   Hand,
   Sparkles,
-  ArrowUp,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
+import { useHandDetector } from '@/lib/useHandDetector';
 
-// ===================================================================
-// TODO: Left panel (Sisi Tunarungu):
-//   Replace setInterval simulation with real MediaPipe + LSTM pipeline.
-//   Right panel (Sisi Dengar):
-//   Replace mic button simulation with Web Speech API SpeechRecognition.
-// ===================================================================
-
-const DUMMY_WORDS = [
-  'Halo', 'Saya', 'Butuh', 'Bantuan', 'Terima', 'Kasih', 'Tolong', 'Maaf',
-  'Selamat', 'Pagi', 'Nama', 'Saya', 'Budi',
-];
+// ─────────────────────────────────────────────────────
+// TwoWayMode – Komunikasi Dua Arah
+// Sisi Tunarungu: kamera nyata + MediaPipe + classifier
+// Sisi Pendengar: ketik teks + Web Speech Recognition
+// ─────────────────────────────────────────────────────
 
 interface ChatMessage {
   id: number;
@@ -39,39 +36,39 @@ function getTimeNow() {
 }
 
 export default function TwoWayMode() {
-  const [isRunning, setIsRunning] = useState(false);
+  const { videoRef, canvasRef, gesture, status, error, start, stop, pause, resume } = useHandDetector();
+
   const [detectedWords, setDetectedWords] = useState<string[]>([]);
-  const [wordIndex, setWordIndex] = useState(0);
   const [inputText, setInputText] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isMicActive, setIsMicActive] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [speechSupported, setSpeechSupported] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const idCounter = useRef(0);
 
-  const clearInterval_ = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
-  }, []);
+  // Gesture stabilization
+  const lastGestureRef = useRef<string | null>(null);
+  const gestureCountRef = useRef(0);
+  const STABLE_FRAMES = 14;
 
-  const toggleCamera = useCallback(() => {
-    if (isRunning) {
-      clearInterval_();
-      setIsRunning(false);
-    } else {
-      setIsRunning(true);
-      // TODO: Start MediaPipe here
-      intervalRef.current = setInterval(() => {
-        setWordIndex((prev) => {
-          const word = DUMMY_WORDS[prev % DUMMY_WORDS.length];
-          setDetectedWords((ws) => [...ws, word]);
-          return prev + 1;
-        });
-      }, 2500);
+  useEffect(() => {
+    if (!gesture) {
+      lastGestureRef.current = null;
+      gestureCountRef.current = 0;
+      return;
     }
-  }, [isRunning, clearInterval_]);
+    if (gesture.label === lastGestureRef.current) {
+      gestureCountRef.current += 1;
+      if (gestureCountRef.current === STABLE_FRAMES) {
+        setDetectedWords((prev) => [...prev, gesture.label]);
+      }
+    } else {
+      lastGestureRef.current = gesture.label;
+      gestureCountRef.current = 1;
+    }
+  }, [gesture]);
 
-  // Auto-send detected speech to chat after 6 words
+  // Auto-send detected words to chat after 6 words
   useEffect(() => {
     if (detectedWords.length > 0 && detectedWords.length % 6 === 0) {
       const text = detectedWords.slice(-6).join(' ');
@@ -88,6 +85,13 @@ export default function TwoWayMode() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
 
+  // Check Speech API support
+  useEffect(() => {
+    const supported = typeof window !== 'undefined' &&
+      ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+    setSpeechSupported(supported);
+  }, []);
+
   const sendTextMessage = useCallback(() => {
     const text = inputText.trim();
     if (!text) return;
@@ -99,25 +103,44 @@ export default function TwoWayMode() {
     setInputText('');
   }, [inputText]);
 
-  const simulateMic = useCallback(() => {
+  // Web Speech Recognition untuk sisi pendengar
+  const startMic = useCallback(() => {
+    if (typeof window === 'undefined') return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognitionCtor: any =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognitionCtor) {
+      setSpeechSupported(false);
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const recognition: any = new SpeechRecognitionCtor();
+    recognition.lang = 'id-ID';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
     setIsMicActive(true);
-    // TODO: Replace with web SpeechRecognition API
-    setTimeout(() => {
-      const phrases = ['Baik, saya mengerti.', 'Tolong ulangi sekali lagi.', 'Mari kita duduk di sana.', 'Terima kasih banyak!'];
-      const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+    recognition.start();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
+      const transcript: string = event.results[0][0].transcript;
       idCounter.current += 1;
       setChatHistory((prev) => [
         ...prev,
-        { id: idCounter.current, sender: 'dengar', text: phrase, time: getTimeNow() },
+        { id: idCounter.current, sender: 'dengar', text: transcript, time: getTimeNow() },
       ]);
       setIsMicActive(false);
-    }, 2000);
+    };
+
+    recognition.onerror = () => setIsMicActive(false);
+    recognition.onend = () => setIsMicActive(false);
   }, []);
 
-  useEffect(() => {
-    return () => clearInterval_();
-  }, [clearInterval_]);
-
+  const isRunning = status === 'running';
   const detectedText = detectedWords.join(' ');
 
   return (
@@ -136,11 +159,12 @@ export default function TwoWayMode() {
       </div>
 
       {/* Split panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        {/* Left: Tunarungu panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+
+        {/* ── Left: Tunarungu panel (kamera) ── */}
         <div
-          className="rounded-2xl overflow-hidden"
-          style={{ backgroundColor: 'var(--color-card)', boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}
+          className="lg:col-span-3 rounded-2xl overflow-hidden"
+          style={{ backgroundColor: 'var(--color-card)', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
         >
           <div
             className="flex items-center gap-2 px-5 py-3"
@@ -151,66 +175,112 @@ export default function TwoWayMode() {
             <span className="text-xs opacity-75 ml-auto">Deteksi Isyarat</span>
           </div>
 
-          {/* Camera preview */}
+          {/* Camera preview with landmark overlay */}
           <div
-            className="flex flex-col items-center justify-center"
-            style={{ backgroundColor: '#e8eee8', minHeight: '200px' }}
+            className="relative flex items-center justify-center w-full"
+            style={{ backgroundColor: '#0f1a0f', minHeight: '280px', aspectRatio: '16/9' }}
           >
-            <div className="flex flex-col items-center gap-3">
-              <div
-                className="relative flex items-center justify-center w-20 h-20 rounded-full"
-                style={{ backgroundColor: 'rgba(35,114,39,0.15)' }}
-              >
-                {isRunning ? (
-                  <Hand size={38} style={{ color: 'var(--color-primary)' }} />
+            <video
+              ref={videoRef}
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ display: isRunning || status === 'paused' ? 'block' : 'none' }}
+              muted
+              playsInline
+            />
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0 w-full h-full"
+              style={{ display: isRunning || status === 'paused' ? 'block' : 'none', pointerEvents: 'none' }}
+            />
+
+            {/* Gesture label overlay */}
+            {isRunning && gesture && (
+              <div className="absolute bottom-2 left-2 z-10">
+                <div
+                  key={gesture.label}
+                  className="animate-fadeIn px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1"
+                  style={{ backgroundColor: 'rgba(35,114,39,0.9)', color: 'white' }}
+                >
+                  <Sparkles size={11} />
+                  {gesture.label}
+                </div>
+              </div>
+            )}
+
+            {/* Idle / loading / error state */}
+            {(status === 'idle' || status === 'loading' || status === 'error') && (
+              <div className="flex flex-col items-center gap-3 p-4 text-center">
+                {status === 'loading' ? (
+                  <>
+                    <Loader2 size={32} className="animate-spin" style={{ color: 'var(--color-primary)' }} />
+                    <p className="text-xs" style={{ color: '#6b8a6b' }}>Memuat kamera...</p>
+                  </>
+                ) : status === 'error' ? (
+                  <>
+                    <AlertCircle size={32} style={{ color: '#ef4444' }} />
+                    <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>
+                  </>
                 ) : (
-                  <Camera size={34} style={{ color: 'var(--color-primary)' }} />
-                )}
-                {isRunning && (
-                  <span
-                    className="absolute inset-0 rounded-full animate-ping"
-                    style={{ backgroundColor: 'rgba(35,114,39,0.15)' }}
-                  />
+                  <>
+                    <div
+                      className="relative flex items-center justify-center w-16 h-16 rounded-full"
+                      style={{ backgroundColor: 'rgba(35,114,39,0.15)' }}
+                    >
+                      {isRunning ? (
+                        <Hand size={30} style={{ color: 'var(--color-primary)' }} />
+                      ) : (
+                        <Camera size={28} style={{ color: 'var(--color-primary)' }} />
+                      )}
+                    </div>
+                    {!isRunning && (
+                      <p className="text-xs" style={{ color: '#6b8a6b' }}>
+                        Kamera belum aktif
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
-              {detectedWords.length > 0 && (
-                <div
-                  key={detectedWords.length}
-                  className="animate-fadeIn px-4 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1.5"
-                  style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}
-                >
-                  <Sparkles size={13} />
-                  {detectedWords[detectedWords.length - 1]}
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Detected text area */}
           <div className="p-4">
             <div
-              className="rounded-xl p-3 min-h-[72px] mb-3"
+              className="rounded-xl p-3 min-h-[64px] mb-3"
               style={{ backgroundColor: 'var(--color-primary-50)' }}
             >
               <p className="text-lg font-bold leading-snug" style={{ color: 'var(--color-text)' }}>
-                {detectedText || <span style={{ color: 'var(--color-muted)', fontWeight: 400, fontSize: '0.875rem' }}>Isyarat tangan akan terdeteksi di sini...</span>}
+                {detectedText || (
+                  <span style={{ color: 'var(--color-muted)', fontWeight: 400, fontSize: '0.875rem' }}>
+                    Isyarat tangan akan terdeteksi di sini...
+                  </span>
+                )}
                 {isRunning && <span className="animate-blink ml-0.5" style={{ color: 'var(--color-primary)' }}>|</span>}
               </p>
             </div>
 
             <div className="flex gap-2">
               <button
-                onClick={toggleCamera}
-                className="flex items-center gap-2 px-4 py-2, rounded-xl font-semibold text-sm transition-all hover:scale-105"
-                style={{ backgroundColor: isRunning ? '#fee2e2' : 'var(--color-primary)', color: isRunning ? '#dc2626' : 'white', padding: '0.5rem 1rem' }}
+                onClick={status === 'running' ? pause : status === 'paused' ? resume : start}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all hover:scale-105"
+                style={{
+                  backgroundColor: isRunning ? '#fee2e2' : 'var(--color-primary)',
+                  color: isRunning ? '#dc2626' : 'white',
+                }}
               >
-                {isRunning ? <Pause size={16} /> : <Camera size={16} />}
-                {isRunning ? 'Hentikan' : 'Mulai Kamera'}
+                {status === 'loading' ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : isRunning ? (
+                  <Pause size={16} />
+                ) : (
+                  <Camera size={16} />
+                )}
+                {status === 'loading' ? 'Memuat...' : isRunning ? 'Hentikan' : status === 'paused' ? 'Lanjut' : 'Mulai Kamera'}
               </button>
               <button
-                onClick={() => setDetectedWords([])}
+                onClick={() => { stop(); setDetectedWords([]); }}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all hover:scale-105"
-                style={{ backgroundColor: 'var(--color-primary-50)', color: 'var(--color-primary)', padding: '0.5rem 0.75rem' }}
+                style={{ backgroundColor: 'var(--color-primary-50)', color: 'var(--color-primary)' }}
               >
                 <Trash2 size={14} />
               </button>
@@ -218,13 +288,13 @@ export default function TwoWayMode() {
           </div>
         </div>
 
-        {/* Right: Dengar panel */}
+        {/* ── Right: Dengar panel ── */}
         <div
-          className="rounded-2xl overflow-hidden"
-          style={{ backgroundColor: 'var(--color-card)', boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}
+          className="lg:col-span-2 rounded-2xl overflow-hidden flex flex-col"
+          style={{ backgroundColor: 'var(--color-card)', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
         >
           <div
-            className="flex items-center gap-2 px-5 py-3"
+            className="flex items-center gap-2 px-5 py-4"
             style={{ backgroundColor: '#1d6e9f', color: 'white' }}
           >
             <Ear size={16} />
@@ -232,41 +302,32 @@ export default function TwoWayMode() {
             <span className="text-xs opacity-75 ml-auto">Teks & Suara</span>
           </div>
 
-          {/* Large display for recent message */}
-          <div
-            className="flex items-center justify-center p-6"
-            style={{ backgroundColor: '#eff6fc', minHeight: '200px' }}
-          >
-            {chatHistory.filter((m) => m.sender === 'dengar').length > 0 ? (
-              <div className="text-center animate-fadeIn">
-                <p
-                  className="text-3xl font-bold leading-tight"
-                  style={{ color: '#1d6e9f', wordBreak: 'break-word' }}
-                >
-                  {chatHistory.filter((m) => m.sender === 'dengar').at(-1)?.text}
-                </p>
-                <p className="text-xs mt-2" style={{ color: '#6B7280' }}>
-                  Pesan terakhir dari pendengar
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-center" style={{ color: '#6B7280' }}>
-                Teks dari pendengar akan tampil besar di sini agar mudah dibaca
-              </p>
-            )}
-          </div>
-
-          {/* Input form */}
-          <div className="p-4">
+          <div className="p-4 flex flex-col gap-3 flex-1">
+            {/* Display for latest dengar message */}
             <div
-              className="rounded-xl p-3 min-h-[72px] mb-3 flex items-center justify-center"
+              className="rounded-xl px-4 py-3 min-h-[84px] flex items-start"
               style={{ backgroundColor: '#eff6fc' }}
             >
-              <p className="text-sm flex items-center gap-1.5" style={{ color: '#6B7280' }}>
-                Tampilan pesan besar di atas
-                <ArrowUp size={14} />
-              </p>
+              {chatHistory.filter((m) => m.sender === 'dengar').length > 0 ? (
+                <div className="animate-fadeIn w-full">
+                  <p
+                    className="text-2xl font-bold leading-snug"
+                    style={{ color: '#1d6e9f', wordBreak: 'break-word' }}
+                  >
+                    {chatHistory.filter((m) => m.sender === 'dengar').at(-1)?.text}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#6B7280' }}>
+                    Pesan terakhir dari pendengar
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm" style={{ color: '#6B7280' }}>
+                  Teks dari pendengar akan tampil besar di sini agar mudah dibaca
+                </p>
+              )}
             </div>
+
+            {/* Input form */}
             <div className="flex gap-2">
               <input
                 type="text"
@@ -274,10 +335,10 @@ export default function TwoWayMode() {
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && sendTextMessage()}
                 placeholder="Ketik pesan di sini..."
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none border transition-all"
+                className="flex-1 px-1 pb-2 pt-1 text-sm outline-none border-b transition-all focus:border-b-2"
                 style={{
                   borderColor: 'var(--color-border)',
-                  backgroundColor: 'var(--color-bg)',
+                  backgroundColor: 'transparent',
                   color: 'var(--color-text)',
                 }}
               />
@@ -289,14 +350,25 @@ export default function TwoWayMode() {
                 <Send size={16} />
               </button>
               <button
-                onClick={simulateMic}
-                disabled={isMicActive}
-                className="flex items-center justify-center w-10 h-10 rounded-xl transition-all hover:scale-105 disabled:opacity-50"
+                onClick={startMic}
+                disabled={isMicActive || !speechSupported}
+                title={!speechSupported ? 'Browser tidak mendukung Speech Recognition' : 'Bicara (Speech to Text)'}
+                className="flex items-center justify-center w-10 h-10 rounded-xl transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ backgroundColor: isMicActive ? '#fee2e2' : '#e0f0fa', color: isMicActive ? '#dc2626' : '#1d6e9f' }}
               >
-                <Mic size={16} className={isMicActive ? 'animate-pulse' : ''} />
+                {isMicActive ? <MicOff size={16} className="animate-pulse" /> : <Mic size={16} />}
               </button>
             </div>
+            {!speechSupported && (
+              <p className="text-xs mt-2" style={{ color: '#f59e0b' }}>
+                ⚠ Browser tidak mendukung Speech Recognition. Gunakan Chrome/Edge.
+              </p>
+            )}
+            {isMicActive && (
+              <p className="text-xs mt-2 animate-pulse" style={{ color: '#1d6e9f' }}>
+                🎤 Sedang mendengarkan... bicara sekarang
+              </p>
+            )}
           </div>
         </div>
       </div>

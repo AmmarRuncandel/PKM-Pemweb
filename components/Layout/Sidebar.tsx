@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Camera,
@@ -9,15 +10,16 @@ import {
   BookOpen,
   GraduationCap,
   History,
-  HandMetal,
+  Home,
 } from 'lucide-react';
 
 const navItems = [
-  { href: '/camera', label: 'Kamera Real-Time', icon: Camera },
-  { href: '/twoway', label: 'Mode Dua Arah', icon: MessageSquareMore },
-  { href: '/dictionary', label: 'Kamus BISINDO', icon: BookOpen },
-  { href: '/learn', label: 'Modul Belajar', icon: GraduationCap },
-  { href: '/history', label: 'Riwayat', icon: History },
+  { href: '/',           label: 'Home',           icon: Home },
+  { href: '/camera',     label: 'Kamera Real-Time', icon: Camera },
+  { href: '/twoway',     label: 'Mode Dua Arah',    icon: MessageSquareMore },
+  { href: '/dictionary', label: 'Kamus BISINDO',    icon: BookOpen },
+  { href: '/learn',      label: 'Modul Belajar',    icon: GraduationCap },
+  { href: '/history',    label: 'Riwayat',          icon: History },
 ];
 
 export default function Sidebar() {
@@ -26,19 +28,23 @@ export default function Sidebar() {
   return (
     <div className="flex flex-col h-full">
       {/* Brand */}
-      <div className="flex items-center gap-3 px-6 py-6" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <div
-          className="flex items-center justify-center w-10 h-10 rounded-xl"
-          style={{ backgroundColor: 'var(--color-primary)' }}
-        >
-          <HandMetal size={20} color="white" />
+      <div className="flex items-center gap-3 px-5 py-5" style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <div className="flex-shrink-0 flex items-center justify-center">
+          <Image
+            src="/images/logo.png"
+            alt="BISINDO Logo"
+            width={44}
+            height={44}
+            className="rounded-lg object-contain"
+            priority
+          />
         </div>
         <div>
           <h1 className="font-bold text-lg leading-none" style={{ color: 'var(--color-text)' }}>
-            SIBI-VISION
+            BISINDO
           </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
-            Penerjemah BISINDO
+            Bahasa Isyarat Indonesia
           </p>
         </div>
       </div>

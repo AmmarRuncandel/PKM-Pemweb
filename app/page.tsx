@@ -78,12 +78,12 @@ export default function HomePage() {
             <HandMetal size={24} color="white" />
           </div>
           <span className="text-sm font-medium opacity-80 uppercase tracking-wider">
-            SIBI-VISION
+            BISINDO
           </span>
         </div>
 
         <h1 className="text-3xl md:text-4xl font-bold mb-3 leading-tight">
-          Jembatan Komunikasi<br />Tanpa Batas 🤝
+          Jembatan Komunikasi<br />Tanpa Batas
         </h1>
         <p className="text-base md:text-lg opacity-85 max-w-xl leading-relaxed mb-6">
           Platform penerjemah Bahasa Isyarat Indonesia (BISINDO) real-time yang inklusif,

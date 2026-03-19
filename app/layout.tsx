@@ -3,10 +3,14 @@ import './globals.css';
 import AppLayout from '@/components/Layout/AppLayout';
 
 export const metadata: Metadata = {
-  title: 'SIBI-VISION – Penerjemah BISINDO',
+  title: 'BISINDO – Penerjemah Bahasa Isyarat Indonesia',
   description:
     'Platform penerjemah Bahasa Isyarat Indonesia (BISINDO) real-time yang inklusif dan mudah digunakan.',
   keywords: ['bisindo', 'bahasa isyarat', 'tunarungu', 'terjemah', 'sibi'],
+  icons: {
+    icon: '/images/logo.png',
+    apple: '/images/logo.png',
+  },
 };
 
 export default function RootLayout({

@@ -9,14 +9,16 @@ import {
   BookOpen,
   GraduationCap,
   History,
+  Home,
 } from 'lucide-react';
 
 const navItems = [
-  { href: '/camera', label: 'Kamera', icon: Camera },
-  { href: '/twoway', label: 'Dua Arah', icon: MessageSquareMore },
-  { href: '/dictionary', label: 'Kamus', icon: BookOpen },
-  { href: '/learn', label: 'Belajar', icon: GraduationCap },
-  { href: '/history', label: 'Riwayat', icon: History },
+  { href: '/',           label: 'Home',    icon: Home },
+  { href: '/camera',     label: 'Kamera',  icon: Camera },
+  { href: '/twoway',     label: 'Dua Arah', icon: MessageSquareMore },
+  { href: '/dictionary', label: 'Kamus',   icon: BookOpen },
+  { href: '/learn',      label: 'Belajar', icon: GraduationCap },
+  { href: '/history',    label: 'Riwayat', icon: History },
 ];
 
 export default function MobileNav() {

@@ -21,7 +21,6 @@ export default function ModuleModal({ module, onClose, onComplete }: ModuleModal
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
     >
       <div
         className="w-full max-w-lg rounded-3xl animate-fadeIn overflow-hidden"

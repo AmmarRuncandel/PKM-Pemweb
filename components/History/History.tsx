@@ -50,7 +50,7 @@ export default function History() {
           </h1>
         </div>
         <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
-          Log penggunaan aplikasi SIBI-VISION Anda.
+          Log penggunaan aplikasi BISINDO Anda.
         </p>
       </div>
 
