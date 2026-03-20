@@ -78,7 +78,7 @@ export default function HomePage() {
             <HandMetal size={24} color="white" />
           </div>
           <span className="text-sm font-medium opacity-80 uppercase tracking-wider">
-            BISINDO
+            BISINDO - VISION
           </span>
         </div>
 

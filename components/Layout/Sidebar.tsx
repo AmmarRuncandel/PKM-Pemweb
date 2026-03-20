@@ -41,7 +41,7 @@ export default function Sidebar() {
         </div>
         <div>
           <h1 className="font-bold text-lg leading-none" style={{ color: 'var(--color-text)' }}>
-            BISINDO
+            BISINDO - VISION
           </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
             Bahasa Isyarat Indonesia

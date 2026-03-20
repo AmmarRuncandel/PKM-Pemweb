@@ -3,7 +3,7 @@ import './globals.css';
 import AppLayout from '@/components/Layout/AppLayout';
 
 export const metadata: Metadata = {
-  title: 'BISINDO – Penerjemah Bahasa Isyarat Indonesia',
+  title: 'BISINDO - VISION – Penerjemah Bahasa Isyarat Indonesia',
   description:
     'Platform penerjemah Bahasa Isyarat Indonesia (BISINDO) real-time yang inklusif dan mudah digunakan.',
   keywords: ['bisindo', 'bahasa isyarat', 'tunarungu', 'terjemah', 'sibi'],
